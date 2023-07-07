@@ -1,0 +1,89 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  id_token          String? @db.String
+  refresh_token     String? @db.String
+  access_token      String? @db.String
+  token_type        String?
+  type              String
+  provider          String
+  providerAccountId String
+  expires_at        Int?
+  scope             String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  sessionToken String   @unique
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String                    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String?                   @unique
+  username      String?                   @unique
+  emailVerified DateTime?
+  image         String?
+  conversations ConversationParticipant[]
+  messages      Message[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Conversation {
+  id              String                    @id @default(auto()) @map("_id") @db.ObjectId
+  latestMessageId String?                   @unique @db.ObjectId
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  messages        Message[]
+  latestMessage   Message?                  @relation(name: "latestConversationMessage", fields: [latestMessageId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  participants    ConversationParticipant[]
+}
+
+model ConversationParticipant {
+  id                   String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId               String       @db.ObjectId
+  conversationId       String       @db.ObjectId
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  hasSeenLatestMessage Boolean
+  user                 User         @relation(fields: [userId], references: [id])
+  conversation         Conversation @relation(fields: [conversationId], references: [id])
+}
+
+model Message {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId String        @db.ObjectId
+  senderId       String        @db.ObjectId
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  body           String
+  isLatestIn     Conversation? @relation(name: "latestConversationMessage")
+  sender         User          @relation(fields: [senderId], references: [id])
+  conversation   Conversation  @relation(fields: [conversationId], references: [id])
+}
